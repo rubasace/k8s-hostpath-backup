@@ -74,7 +74,6 @@ remove_old_backups(){
 }
 
 try_backup(){
-  touch "$TEMP_BACKUP_FILENAME"
   get_deployment_names
   stop_deployments
   echo "Giving ${SLEEP_SECONDS} seconds to deployments to scale down"
@@ -98,3 +97,4 @@ fallback() {
 try_backup || fallback
 
 #TODO try to do incremental, so we can minimize time down per application
+#TODO add support for DEBUG flag (commands and maybe -v to tarball)
