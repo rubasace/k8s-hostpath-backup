@@ -3,6 +3,8 @@
 set -e
 
 #Variables
+BACKUP_FILENAME="${BACKUP_DIRECTORY}/${BACKUP_NAME_PREFIX}_$(date +%F_%R).tar.gz"
+TEMP_BACKUP_FILENAME="${BACKUP_FILENAME}.tmp"
 deployments=()
 notFound=0
 
@@ -51,16 +53,15 @@ start_stopped_deployments(){
 
 backup(){
     echo "###### Backing up persistent volumes ######"
-    BACKUP_FILENAME="${BACKUP_DIRECTORY}/${BACKUP_NAME_PREFIX}_$(date +%F_%R).tar.gz"
     if test -f "${BACKUP_IGNORE_CONFIG_FILE}"; then
         echo "### Files that will not be backed up: ###"
         cat "${BACKUP_IGNORE_CONFIG_FILE}"
         EXCLUSION_ARGUMENT="--exclude-from=${BACKUP_IGNORE_CONFIG_FILE}"
     fi
     mkdir -p "${BACKUP_DIRECTORY}"
-    tar -cpzf "${BACKUP_FILENAME}.tmp" "${EXCLUSION_ARGUMENT}" "${PERSISTENT_VOLUMES_ROOT}"
+    tar -cpzf "${TEMP_BACKUP_FILENAME}" "${EXCLUSION_ARGUMENT}" "${PERSISTENT_VOLUMES_ROOT}"
 
-    mv "${BACKUP_FILENAME}.tmp" "${BACKUP_FILENAME}"
+    mv "${TEMP_BACKUP_FILENAME}" "${BACKUP_FILENAME}"
     chown $BACKUP_UID:$BACKUP_GID "${BACKUP_FILENAME}"
     echo "###### Finished Backing up persistent volumes ######"
 }
@@ -73,6 +74,7 @@ remove_old_backups(){
 }
 
 try_backup(){
+  touch "$TEMP_BACKUP_FILENAME"
   get_deployment_names
   stop_deployments
   echo "Giving ${SLEEP_SECONDS} seconds to deployments to scale down"
@@ -88,8 +90,9 @@ try_backup(){
 }
 
 fallback() {
-  echo "Backup exited with error, will try to scale up deployments"
+  echo "Backup exited with error, will try to scale up deployments and delete temporary file"
   start_stopped_deployments
+  rm -f "$TEMP_BACKUP_FILENAME"
 }
 
 try_backup || fallback
